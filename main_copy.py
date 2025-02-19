@@ -11,22 +11,15 @@ from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.clock import Clock
 from functools import partial
-from langdetect import detect
+import json
 
-# Paths to Vosk models
-MODEL_PATH_EN = "vosk_model"
-MODEL_PATH_FIL = "vosk_model_ph"
-
-# Load models
-if not os.path.exists(MODEL_PATH_EN) or not os.path.exists(MODEL_PATH_FIL):
-    print("One or more models not found! Please check the paths.")
+# Vosk Model Setup
+MODEL_PATH = "vosk_model"
+if not os.path.exists(MODEL_PATH):
+    print("Model not found! Please check the path.")
     exit(1)
-
-vosk_model_en = Model(MODEL_PATH_EN)  # English model
-vosk_model_fil = Model(MODEL_PATH_FIL)  # Filipino model
-
-# Default recognizer (starts with English)
-recognizer = KaldiRecognizer(vosk_model_en, 16000)
+vosk_model = Model(MODEL_PATH)
+recognizer = KaldiRecognizer(vosk_model, 16000)
 
 # Global variables
 recognition_active = False
@@ -57,19 +50,6 @@ def translate_text(text):
 
     return "Translation not found"
 
-# Detect Language Function
-def detect_language(text):
-    try:
-        lang = detect(text)  # Detects language using langdetect
-        if lang == "en":
-            return "en"
-        elif lang in ["tl", "fil"]:  # Tagalog or Filipino
-            return "fil"
-        else:
-            return "unknown"
-    except:
-        return "unknown"
-
 # Start Recognition
 def start_recognition():
     global recognition_active
@@ -77,31 +57,16 @@ def start_recognition():
         return  # Prevent multiple threads from starting
 
     recognition_active = True
-
     def process_audio_stream():
-        global recognizer
         with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype="int16", channels=1, callback=audio_callback):
             while recognition_active:
                 try:
                     data = audio_queue.get(timeout=1)
                     if recognizer.AcceptWaveform(data):
-                        result_text = json.loads(recognizer.Result()).get("text", "").strip()
-                        if result_text:
-                            detected_lang = detect_language(result_text)
-                            print(f"Detected Language: {detected_lang}")
-
-                            # Switch recognizer if language is different
-                            if detected_lang == "fil":
-                                recognizer = KaldiRecognizer(vosk_model_fil, 16000)
-                            elif detected_lang == "en":
-                                recognizer = KaldiRecognizer(vosk_model_en, 16000)
-                            else:
-                                print("Unknown language detected")
-
-                            # Translate and update UI
-                            translated = translate_text(result_text)
-                            Clock.schedule_once(partial(update_text, result_text, translated), 0)
-
+                        result = json.loads(recognizer.Result()).get("text", "").strip()
+                        if result:
+                            translated = translate_text(result)
+                            Clock.schedule_once(partial(update_text, result, translated), 0)
                 except queue.Empty:
                     continue
 
@@ -146,6 +111,10 @@ class TranslatorApp(App):
         self.control_button.bind(on_touch_up=self.on_button_up)
         main_layout.add_widget(self.control_button)
         
+        # self.dark_mode_button = Button(text="Toggle Dark Mode", size_hint=(1, 0.1))
+        # self.dark_mode_button.bind(on_press=self.toggle_dark_mode)
+        # main_layout.add_widget(self.dark_mode_button)
+        
         self.main_layout = main_layout
         return main_layout
 
@@ -167,6 +136,27 @@ class TranslatorApp(App):
         if instance.collide_point(*touch.pos):
             self.status_label.text = "Stopped Listening"
             stop_recognition()
+
+    # def toggle_dark_mode(self, instance):
+    #     self.dark_mode = not self.dark_mode
+    #     if self.dark_mode:
+    #         self.main_layout.background_color = (0, 0, 0, 1)  # Dark mode
+    #         self.status_label.color = (1, 1, 1, 1)
+    #         self.control_button.background_color = (0.2, 0.2, 0.2, 1)
+    #         self.dark_mode_button.background_color = (0.2, 0.2, 0.2, 1)
+    #     else:
+    #         self.main_layout.background_color = (1, 1, 1, 1)  # Light mode
+    #         self.status_label.color = (0, 0, 0, 1)
+    #         self.control_button.background_color = (0.8, 0.8, 0.8, 1)
+    #         self.dark_mode_button.background_color = (0.8, 0.8, 0.8, 1)
+        
+    #     if not self.dark_mode:
+    #         self.input_text.background_color = (1, 1, 1, 1)
+    #         self.translation_output.background_color = (1, 1, 1, 1)
+    #         self.input_text.foreground_color = (0, 0, 0, 1)
+    #         self.translation_output.foreground_color = (0, 0, 0, 1)
+    #         self.input_text.border = (0, 0, 1, 1)
+    #         self.translation_output.border = (0, 0, 1, 1)
 
 # Run the app
 if __name__ == "__main__":
