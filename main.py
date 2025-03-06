@@ -108,16 +108,16 @@ class TranslatorApp(App):
         
         button_layout = BoxLayout(size_hint=(1, 0.2), spacing=10)
         
-        self.translate_button = Image(source="translate_icon.png", size_hint=(0.2, 1))
+        self.translate_button = Image(source="assets/translate_icon.png", size_hint=(0.2, 1))
         self.translate_button.bind(on_touch_down=self.manual_translate)
         button_layout.add_widget(self.translate_button)
         
-        self.control_button = Image(source="mic_icon.png", size_hint=(0.2, 1))
+        self.control_button = Image(source="assets/mic_icon.png", size_hint=(0.2, 1))
         self.control_button.bind(on_touch_down=self.on_button_down)
         self.control_button.bind(on_touch_up=self.on_button_up)
         button_layout.add_widget(self.control_button)
         
-        self.speak_button = Image(source="speaker_icon.png", size_hint=(0.2, 1))
+        self.speak_button = Image(source="assets/speaker_icon.png", size_hint=(0.2, 1))
         self.speak_button.bind(on_touch_down=self.speak_translation_output)
         button_layout.add_widget(self.speak_button)
         
@@ -128,6 +128,23 @@ class TranslatorApp(App):
         main_layout.add_widget(self.dark_mode_toggle)
         
         return main_layout
+    
+    def toggle_dark_mode(self, instance):
+        self.dark_mode = not self.dark_mode
+        color = (0, 0, 0, 1) if self.dark_mode else (1, 1, 1, 1)
+        with self.root.canvas.before:
+            Color(*color)
+            self.rect = Rectangle(size=self.root.size, pos=self.root.pos)
+            self.root.bind(size=self._update_rect, pos=self._update_rect)
+        
+        if self.dark_mode:
+            self.control_button.source = "assets/mic_icon_gray.png"
+            self.speak_button.source = "assets/speaker_icon_gray.png"
+            self.translate_button.source = "assets/translate_icon_gray.png"
+        else:
+            self.control_button.source = "assets/mic_icon.png"
+            self.speak_button.source = "assets/speaker_icon.png"
+            self.translate_button.source = "assets/translate_icon.png"
     
     def _update_rect(self, instance, value):
         self.rect.size = instance.size
@@ -155,13 +172,13 @@ class TranslatorApp(App):
             if text:
                 speak_translation(text)
     
-    def toggle_dark_mode(self, instance):
-        self.dark_mode = not self.dark_mode
-        color = (0, 0, 0, 1) if self.dark_mode else (1, 1, 1, 1)
-        with self.root.canvas.before:
-            Color(*color)
-            self.rect = Rectangle(size=self.root.size, pos=self.root.pos)
-            self.root.bind(size=self._update_rect, pos=self._update_rect)
+    # def toggle_dark_mode(self, instance):
+    #     self.dark_mode = not self.dark_mode
+    #     color = (0, 0, 0, 1) if self.dark_mode else (1, 1, 1, 1)
+    #     with self.root.canvas.before:
+    #         Color(*color)
+    #         self.rect = Rectangle(size=self.root.size, pos=self.root.pos)
+    #         self.root.bind(size=self._update_rect, pos=self._update_rect)
 
 if __name__ == "__main__":
     app = TranslatorApp()
