@@ -2,6 +2,7 @@ import os
 import queue
 import threading
 import json
+import pyttsx3
 from vosk import Model, KaldiRecognizer
 import sounddevice as sd
 from kivy.app import App
@@ -10,35 +11,26 @@ from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.togglebutton import ToggleButton
+from kivy.uix.image import Image
 from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle
 from kivy.clock import Clock
 from functools import partial
-from langdetect import detect
 
-# Paths to Vosk models
+# Path to Vosk English model
 MODEL_PATH_EN = "vosk_model"
-MODEL_PATH_FIL = "vosk_model_ph"
 
-# Load models
-if not os.path.exists(MODEL_PATH_EN) or not os.path.exists(MODEL_PATH_FIL):
-    print("One or more models not found! Please check the paths.")
+# Load model
+if not os.path.exists(MODEL_PATH_EN):
+    print("English model not found! Please check the path.")
     exit(1)
 
-vosk_model_en = Model(MODEL_PATH_EN)  # English model
-vosk_model_fil = Model(MODEL_PATH_FIL)  # Filipino model
-
-# Default recognizer (starts with English)
+vosk_model_en = Model(MODEL_PATH_EN)
 recognizer = KaldiRecognizer(vosk_model_en, 16000)
 
 # Global variables
 recognition_active = False
 audio_queue = queue.Queue()
-
-def audio_callback(indata, frames, time, status):
-    if status:
-        print(status, flush=True)
-    audio_queue.put(bytes(indata))
 
 # Load Translation Dictionary
 with open("translation_dict.json", "r", encoding="utf-8") as file:
@@ -46,28 +38,24 @@ with open("translation_dict.json", "r", encoding="utf-8") as file:
 
 def translate_text(text):
     text = text.lower()
-    normalized_dict = {k.lower(): v for k, v in TRANSLATION_DICT.items()}
-    reverse_dict = {v.lower(): k for k, v in TRANSLATION_DICT.items()}
-    return normalized_dict.get(text, reverse_dict.get(text, "Translation not found"))
+    return TRANSLATION_DICT.get(text, "Translation not found")
 
-def detect_language(text):
-    try:
-        lang = detect(text)
-        return "fil" if lang in ["tl", "fil"] else "en" if lang == "en" else "unknown"
-    except:
-        return "unknown"
+def audio_callback(indata, frames, time, status):
+    if status:
+        print(status, flush=True)
+    audio_queue.put(bytes(indata))
 
 def start_recognition():
     global recognition_active
     if recognition_active:
         print("Recognition already active, ignoring duplicate start.")
-        return  # Prevent multiple recognitions
+        return
 
     recognition_active = True
     print("Starting voice recognition...")
 
     def process_audio_stream():
-        global recognition_active, recognizer
+        global recognition_active
         with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype="int16", channels=1, callback=audio_callback):
             while recognition_active:
                 try:
@@ -75,8 +63,6 @@ def start_recognition():
                     if recognizer.AcceptWaveform(data):
                         result_text = json.loads(recognizer.Result()).get("text", "").strip()
                         if result_text:
-                            detected_lang = detect_language(result_text)
-                            recognizer = KaldiRecognizer(vosk_model_fil, 16000) if detected_lang == "fil" else KaldiRecognizer(vosk_model_en, 16000)
                             translated = translate_text(result_text)
                             Clock.schedule_once(partial(update_text, result_text, translated), 0)
                 except queue.Empty:
@@ -84,7 +70,7 @@ def start_recognition():
                 except Exception as e:
                     print("Error in recognition:", e)
                     break
-        recognition_active = False  # Reset flag when finished
+        recognition_active = False
 
     threading.Thread(target=process_audio_stream, daemon=True).start()
 
@@ -96,39 +82,48 @@ def update_text(input_text, translated_text, *args):
     app.input_text.text = input_text
     app.translation_output.text = translated_text
 
+def speak_translation(text):
+    engine = pyttsx3.init()
+    engine.say(text)
+    engine.runAndWait()
+
 class TranslatorApp(App):
     def build(self):
         self.dark_mode = False
         main_layout = BoxLayout(orientation='vertical', padding=20, spacing=20)
         
         with main_layout.canvas.before:
-            Color(1, 1, 1, 1)  # Set background color to white
+            Color(1, 1, 1, 1)
             self.rect = Rectangle(size=main_layout.size, pos=main_layout.pos)
             main_layout.bind(size=self._update_rect, pos=self._update_rect)
         
         self.status_label = Label(text="Press and hold to start translation", size_hint=(1, 0.1), font_size='20sp', color=(0, 0, 0, 1))
         main_layout.add_widget(self.status_label)
         
-        self.input_text = TextInput(multiline=True, hint_text="Enter Text", size_hint=(1, 0.3), background_color=(1, 1, 1, 1), foreground_color=(0, 0, 0, 1))
+        self.input_text = TextInput(multiline=True, hint_text="Enter Text", size_hint=(1, 0.3))
         main_layout.add_widget(self.input_text)
         
-        self.translation_output = TextInput(multiline=True, hint_text="Translation", readonly=True, size_hint=(1, 0.3), background_color=(1, 1, 1, 1), foreground_color=(0, 0, 0, 1))
+        self.translation_output = TextInput(multiline=True, hint_text="Translation", readonly=True, size_hint=(1, 0.3))
         main_layout.add_widget(self.translation_output)
         
         button_layout = BoxLayout(size_hint=(1, 0.2), spacing=10)
         
-        self.translate_button = Button(text="Translate", size_hint=(0.5, 1), background_color=(0.2, 0.6, 0.8, 1))
-        self.translate_button.bind(on_press=self.manual_translate)
+        self.translate_button = Image(source="translate_icon.png", size_hint=(0.2, 1))
+        self.translate_button.bind(on_touch_down=self.manual_translate)
         button_layout.add_widget(self.translate_button)
         
-        self.control_button = Button(text="Hold to Speak", size_hint=(0.5, 1), background_color=(0.8, 0.2, 0.2, 1))
+        self.control_button = Image(source="mic_icon.png", size_hint=(0.2, 1))
         self.control_button.bind(on_touch_down=self.on_button_down)
         self.control_button.bind(on_touch_up=self.on_button_up)
         button_layout.add_widget(self.control_button)
         
+        self.speak_button = Image(source="speaker_icon.png", size_hint=(0.2, 1))
+        self.speak_button.bind(on_touch_down=self.speak_translation_output)
+        button_layout.add_widget(self.speak_button)
+        
         main_layout.add_widget(button_layout)
         
-        self.dark_mode_toggle = ToggleButton(text="Dark Mode", size_hint=(1, 0.1), background_color=(0.4, 0.4, 0.4, 1))
+        self.dark_mode_toggle = ToggleButton(text="Dark Mode", size_hint=(1, 0.1))
         self.dark_mode_toggle.bind(on_press=self.toggle_dark_mode)
         main_layout.add_widget(self.dark_mode_toggle)
         
@@ -138,10 +133,11 @@ class TranslatorApp(App):
         self.rect.size = instance.size
         self.rect.pos = instance.pos
     
-    def manual_translate(self, instance):
-        input_text = self.input_text.text.strip()
-        translated_text = translate_text(input_text)
-        self.translation_output.text = translated_text
+    def manual_translate(self, instance, touch):
+        if instance.collide_point(*touch.pos):
+            input_text = self.input_text.text.strip()
+            translated_text = translate_text(input_text)
+            self.translation_output.text = translated_text
     
     def on_button_down(self, instance, touch):
         if instance.collide_point(*touch.pos):
@@ -152,6 +148,12 @@ class TranslatorApp(App):
         if instance.collide_point(*touch.pos):
             self.status_label.text = "Stopped Listening"
             stop_recognition()
+    
+    def speak_translation_output(self, instance, touch):
+        if instance.collide_point(*touch.pos):
+            text = self.translation_output.text.strip()
+            if text:
+                speak_translation(text)
     
     def toggle_dark_mode(self, instance):
         self.dark_mode = not self.dark_mode
