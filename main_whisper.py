@@ -1,103 +1,190 @@
-import whisper
-import sounddevice as sd
-import numpy as np
+import os
 import queue
 import threading
+import json
+import pyttsx3
+import sounddevice as sd
+import whisper
+import numpy as np
+import wave
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
-from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
+from kivy.uix.togglebutton import ToggleButton
+from kivy.uix.image import Image
+from kivy.graphics import Color, Rectangle
 from kivy.clock import Clock
 from functools import partial
 
-# Load Whisper model
-model = whisper.load_model("small")  # Choose model size: tiny, base, small, medium, large
+# Load Whisper model (choose "tiny", "base", or "small" for better speed)
+model = whisper.load_model("tiny")
 
 # Global variables
 recognition_active = False
 audio_queue = queue.Queue()
 
-# Audio callback function
+# Load Translation Dictionary
+with open("translation_dict.json", "r", encoding="utf-8") as file:
+    TRANSLATION_DICT = json.load(file)
+
+def translate_text(text):
+    text = text.lower()
+    return TRANSLATION_DICT.get(text, "Translation not found")
+
 def audio_callback(indata, frames, time, status):
     if status:
         print(status, flush=True)
-    audio_queue.put(indata.copy())
+    audio_queue.put(indata.copy())  # Store raw audio data
 
-# Process audio data
-def process_audio_stream():
-    global recognition_active
-    with sd.InputStream(samplerate=16000, channels=1, callback=audio_callback):
-        while recognition_active:
-            if not audio_queue.empty():
-                audio_data = []
-                while not audio_queue.empty():
-                    audio_data.append(audio_queue.get())
-                audio_data = np.concatenate(audio_data, axis=0)
+def process_audio():
+    """ Convert recorded audio from queue to a WAV file and transcribe it using Whisper """
+    temp_filename = "temp.wav"
+    audio_data = []
 
-                # Convert audio data to float32 numpy array
-                audio_data = audio_data.astype(np.float32) / 32768.0
+    while not audio_queue.empty():
+        audio_data.append(audio_queue.get())
 
-                # Perform transcription
-                result = model.transcribe(audio_data, fp16=False)
-                text = result['text'].strip()
-                if text:
-                    Clock.schedule_once(partial(update_text, text), 0)
+    if not audio_data:
+        return ""
 
-# Start Recognition
+    audio_array = np.concatenate(audio_data, axis=0)
+
+    # Save to a WAV file
+    with wave.open(temp_filename, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)  # 16-bit PCM
+        wf.setframerate(16000)
+        wf.writeframes(audio_array.tobytes())
+
+    # Transcribe using Whisper
+    result = model.transcribe(temp_filename)
+    return result["text"]
+
 def start_recognition():
+    """ Start the audio recording thread """
     global recognition_active
     if recognition_active:
-        return  # Prevent multiple threads from starting
+        print("Recognition already active, ignoring duplicate start.")
+        return
+
     recognition_active = True
+    print("Starting voice recognition...")
+
+    def process_audio_stream():
+        global recognition_active
+        with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype="int16", channels=1, callback=audio_callback):
+            while recognition_active:
+                try:
+                    text = process_audio()
+                    if text.strip():
+                        translated = translate_text(text)
+                        Clock.schedule_once(partial(update_text, text, translated), 0)
+                except Exception as e:
+                    print("Error in recognition:", e)
+                    break
+        recognition_active = False
+
     threading.Thread(target=process_audio_stream, daemon=True).start()
 
-# Stop Recognition
 def stop_recognition():
     global recognition_active
     recognition_active = False
 
-# Update UI Text
-def update_text(transcribed_text, *args):
-    app.input_text.text = transcribed_text
-    app.translation_output.text = ""  # Clear previous translation
+def update_text(input_text, translated_text, *args):
+    app.input_text.text = input_text
+    app.translation_output.text = translated_text
 
-# Kivy Application
+def speak_translation(text):
+    engine = pyttsx3.init()
+    engine.say(text)
+    engine.runAndWait()
+
 class TranslatorApp(App):
     def build(self):
-        main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
-
-        self.status_label = Label(text="Press and hold to start transcription", size_hint=(1, 0.1), font_size='20sp')
+        self.dark_mode = False
+        main_layout = BoxLayout(orientation='vertical', padding=20, spacing=20)
+        
+        with main_layout.canvas.before:
+            Color(1, 1, 1, 1)
+            self.rect = Rectangle(size=main_layout.size, pos=main_layout.pos)
+            main_layout.bind(size=self._update_rect, pos=self._update_rect)
+        
+        self.status_label = Label(text="Press and hold to start translation", size_hint=(1, 0.1), font_size='20sp', color=(0, 0, 0, 1))
         main_layout.add_widget(self.status_label)
-
-        input_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.3))
-
-        self.input_text = TextInput(multiline=True, hint_text="Transcribed Text", size_hint=(0.9, 1), readonly=True)
-        input_layout.add_widget(self.input_text)
-
-        main_layout.add_widget(input_layout)
-
+        
+        self.input_text = TextInput(multiline=True, hint_text="Enter Text", size_hint=(1, 0.3))
+        main_layout.add_widget(self.input_text)
+        
         self.translation_output = TextInput(multiline=True, hint_text="Translation", readonly=True, size_hint=(1, 0.3))
         main_layout.add_widget(self.translation_output)
-
-        self.control_button = Button(text="Hold to Speak", size_hint=(1, 0.07))
+        
+        button_layout = BoxLayout(size_hint=(1, 0.2), spacing=10)
+        
+        self.translate_button = Image(source="assets/translate_icon.png", size_hint=(0.2, 1))
+        self.translate_button.bind(on_touch_down=self.manual_translate)
+        button_layout.add_widget(self.translate_button)
+        
+        self.control_button = Image(source="assets/mic_icon.png", size_hint=(0.2, 1))
         self.control_button.bind(on_touch_down=self.on_button_down)
         self.control_button.bind(on_touch_up=self.on_button_up)
-        main_layout.add_widget(self.control_button)
-
+        button_layout.add_widget(self.control_button)
+        
+        self.speak_button = Image(source="assets/speaker_icon.png", size_hint=(0.2, 1))
+        self.speak_button.bind(on_touch_down=self.speak_translation_output)
+        button_layout.add_widget(self.speak_button)
+        
+        main_layout.add_widget(button_layout)
+        
+        self.dark_mode_toggle = ToggleButton(text="Dark Mode", size_hint=(1, 0.1))
+        self.dark_mode_toggle.bind(on_press=self.toggle_dark_mode)
+        main_layout.add_widget(self.dark_mode_toggle)
+        
         return main_layout
-
+    
+    def toggle_dark_mode(self, instance):
+        self.dark_mode = not self.dark_mode
+        color = (0, 0, 0, 1) if self.dark_mode else (1, 1, 1, 1)
+        with self.root.canvas.before:
+            Color(*color)
+            self.rect = Rectangle(size=self.root.size, pos=self.root.pos)
+            self.root.bind(size=self._update_rect, pos=self._update_rect)
+        
+        if self.dark_mode:
+            self.control_button.source = "assets/mic_icon_gray.png"
+            self.speak_button.source = "assets/speaker_icon_gray.png"
+            self.translate_button.source = "assets/translate_icon_gray.png"
+        else:
+            self.control_button.source = "assets/mic_icon.png"
+            self.speak_button.source = "assets/speaker_icon.png"
+            self.translate_button.source = "assets/translate_icon.png"
+    
+    def _update_rect(self, instance, value):
+        self.rect.size = instance.size
+        self.rect.pos = instance.pos
+    
+    def manual_translate(self, instance, touch):
+        if instance.collide_point(*touch.pos):
+            input_text = self.input_text.text.strip()
+            translated_text = translate_text(input_text)
+            self.translation_output.text = translated_text
+    
     def on_button_down(self, instance, touch):
         if instance.collide_point(*touch.pos):
             self.status_label.text = "Listening..."
             start_recognition()
-
+    
     def on_button_up(self, instance, touch):
         if instance.collide_point(*touch.pos):
             self.status_label.text = "Stopped Listening"
             stop_recognition()
+    
+    def speak_translation_output(self, instance, touch):
+        if instance.collide_point(*touch.pos):
+            text = self.translation_output.text.strip()
+            if text:
+                speak_translation(text)
 
-# Run the app
 if __name__ == "__main__":
     app = TranslatorApp()
     app.run()
