@@ -16,6 +16,7 @@ from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle
 from kivy.clock import Clock
 from functools import partial
+from kivy.core.window import Window
 
 # Path to Vosk English model
 MODEL_PATH_EN = "vosk_model"
@@ -102,6 +103,7 @@ class TranslatorApp(App):
         
         self.input_text = TextInput(multiline=True, hint_text="Enter Text", size_hint=(1, 0.3))
         main_layout.add_widget(self.input_text)
+        self.input_text.bind(focus=self.debug_focus)
         
         self.translation_output = TextInput(multiline=True, hint_text="Translation", readonly=True, size_hint=(1, 0.3))
         main_layout.add_widget(self.translation_output)
@@ -128,6 +130,12 @@ class TranslatorApp(App):
         main_layout.add_widget(self.dark_mode_toggle)
         
         return main_layout
+
+    def debug_focus(self, instance, value):
+        if value:
+            print("TextInput focused - expecting keyboard to work.")
+        else:
+            print("TextInput lost focus.")
     
     def toggle_dark_mode(self, instance):
         self.dark_mode = not self.dark_mode
