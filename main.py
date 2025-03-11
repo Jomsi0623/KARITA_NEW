@@ -17,6 +17,8 @@ from kivy.graphics import Color, Rectangle
 from kivy.clock import Clock
 from functools import partial
 from kivy.core.window import Window
+import string
+import difflib
 
 # Path to Vosk English model
 MODEL_PATH_EN = "vosk_model"
@@ -38,8 +40,21 @@ with open("translation_dict.json", "r", encoding="utf-8") as file:
     TRANSLATION_DICT = json.load(file)
 
 def translate_text(text):
-    text = text.lower()
-    return TRANSLATION_DICT.get(text, "Translation not found")
+    text = text.lower().strip()
+    no_punctuation_text = text.translate(str.maketrans('', '', string.punctuation))  # Remove punctuation
+
+    if text in TRANSLATION_DICT:
+        return TRANSLATION_DICT[text]
+
+    if no_punctuation_text in TRANSLATION_DICT:
+        return TRANSLATION_DICT[no_punctuation_text]
+
+    closest_match = difflib.get_close_matches(no_punctuation_text, TRANSLATION_DICT.keys(), n=1, cutoff=0.8)
+
+    if closest_match:
+        return TRANSLATION_DICT[closest_match[0]]
+
+    return "Translation not found"
 
 def audio_callback(indata, frames, time, status):
     if status:
