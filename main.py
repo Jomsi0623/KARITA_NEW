@@ -137,9 +137,9 @@ class TranslatorApp(App):
         button_layout = BoxLayout(size_hint=(1, 0.2), spacing=10)
 
         # Translate Button
-        self.translate_button = Image(source="assets/translate_icon.png", size_hint=(0.2, 1))
-        self.translate_button.bind(on_touch_down=self.manual_translate)
-        button_layout.add_widget(self.translate_button)
+        # self.translate_button = Image(source="assets/translate_icon.png", size_hint=(0.2, 1))
+        # self.translate_button.bind(on_touch_down=self.manual_translate)
+        # button_layout.add_widget(self.translate_button)
 
         # English Mic Button
         self.control_button = Image(source="assets/mic_e.png", size_hint=(0.2, 1))
@@ -147,16 +147,16 @@ class TranslatorApp(App):
         self.control_button.bind(on_touch_up=self.on_button_up)
         button_layout.add_widget(self.control_button)
 
+        # Speak Button
+        self.speak_button = Image(source="assets/speaker_icon.png", size_hint=(0.2, 1))
+        self.speak_button.bind(on_touch_down=self.speak_translation_output)
+        button_layout.add_widget(self.speak_button)
+
         # Hiligaynon Mic Button
         self.hiligaynon_button = Image(source="assets/mic_h.png", size_hint=(0.2, 1))
         self.hiligaynon_button.bind(on_touch_down=self.on_button_down_hiligaynon)
         self.hiligaynon_button.bind(on_touch_up=self.on_button_up)
         button_layout.add_widget(self.hiligaynon_button)
-
-        # Speak Button
-        self.speak_button = Image(source="assets/speaker_icon.png", size_hint=(0.2, 1))
-        self.speak_button.bind(on_touch_down=self.speak_translation_output)
-        button_layout.add_widget(self.speak_button)
 
         main_layout.add_widget(button_layout)
 
@@ -211,12 +211,12 @@ class TranslatorApp(App):
             self.control_button.source = "assets/mic_e_gray.png"
             self.hiligaynon_button.source = "assets/mic_h_gray.png"
             self.speak_button.source = "assets/speaker_icon_gray.png"
-            self.translate_button.source = "assets/translate_icon_gray.png"
+            # self.translate_button.source = "assets/translate_icon_gray.png"
         else:
             self.control_button.source = "assets/mic_e.png"
             self.hiligaynon_button.source = "assets/mic_h.png"
             self.speak_button.source = "assets/speaker_icon.png"
-            self.translate_button.source = "assets/translate_icon.png"
+            # self.translate_button.source = "assets/translate_icon.png"
 
 if __name__ == "__main__":
     app = TranslatorApp()
