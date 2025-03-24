@@ -45,30 +45,33 @@ audio_queue = queue.Queue()
 
 # --- DYNAMIC TRANSLATION FUNCTION ---
 def translate_text(text):
-    """Dynamically translates text while preserving greetings."""
+    """Dynamically translates text while preserving greetings and handling phrases."""
     text = text.lower().strip()
     no_punctuation_text = text.translate(str.maketrans('', '', string.punctuation))
 
     words = no_punctuation_text.split()
     translated_words = []
+    i = 0
 
-    for word in words:
-        if word in TRANSLATION_DICT:
-            translated_words.append(TRANSLATION_DICT[word])
-        else:
+    while i < len(words):
+        match_found = False
+        # Start checking for more than 5 words, then 4, then 3, and so on
+        for phrase_length in range(len(words) - i, 0, -1):  # Start from the longest phrase and work down
+            phrase = " ".join(words[i:i + phrase_length])
+            if phrase in TRANSLATION_DICT:
+                translated_words.append(TRANSLATION_DICT[phrase])
+                i += phrase_length
+                match_found = True
+                break
+        
+        if not match_found:
+            word = words[i]
             closest_match = difflib.get_close_matches(word, TRANSLATION_DICT.keys(), n=1, cutoff=0.8)
             translated_words.append(TRANSLATION_DICT[closest_match[0]] if closest_match else word)
+            i += 1
 
-    translated_sentence = " ".join(translated_words)
-
-    # --- Dynamically extract greetings from dictionary ---
-    greetings = list(TRANSLATION_DICT.keys())  # Get all English phrases in the dictionary
-    first_word = " ".join(words[:2]) if " ".join(words[:2]) in greetings else words[0]  # Check 2-word greetings
-
-    if first_word in TRANSLATION_DICT:
-        translated_sentence = f"{TRANSLATION_DICT[first_word].capitalize()}, {translated_sentence}"
-
-    return translated_sentence.capitalize()
+    translated_sentence = " ".join(translated_words).capitalize()
+    return translated_sentence
 
 # --- SPEECH RECOGNITION FUNCTION ---
 def audio_callback(indata, frames, time, status):
