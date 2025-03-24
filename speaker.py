@@ -1,13 +1,13 @@
-import piper
+from TTS.api import TTS
 import sounddevice as sd
 import numpy as np
 
-# Load the voice model (Make sure you have downloaded it!)
-engine = piper.PiperVoice("piper/models/en_US-lessac-medium.onnx")  # Change filename if needed
+# Load the TTS model (offline)
+tts = TTS("tts_models/en/ljspeech/tacotron2-DDC", progress_bar=False).to("cpu")
 
-# Convert text to raw PCM audio
-pcm_audio, sample_rate = engine.synthesize("Hello! This is a test.", return_audio=True)
+# Generate speech waveform
+audio_output = tts.tts(text="Hello, this is Coqui speaking directly!")
 
-# Convert PCM data to NumPy array and play it directly
-sd.play(np.array(pcm_audio, dtype=np.int16), samplerate=sample_rate)
-sd.wait()  # Wait for playback to finish
+# Play the audio using sounddevice
+sd.play(np.array(audio_output), samplerate=22050)
+sd.wait()  # Wait until playback is finished

@@ -2,7 +2,7 @@ import os
 import queue
 import threading
 import json
-import pyttsx3
+# import pyttsx3
 import string
 import difflib
 import sounddevice as sd
@@ -17,10 +17,16 @@ from functools import partial
 from kivy.core.window import Window
 from kivy.graphics import Color, Rectangle
 from kivy.uix.togglebutton import ToggleButton
+from TTS.api import TTS
+import sounddevice as sd
+import numpy as np
 
 # --- VOSK MODELS ---
 MODEL_PATH_EN = "vosk_model"
 MODEL_PATH_HILIGAYNON = "vosk_model_ph"
+
+#TTS
+tts = TTS("tts_models/en/ljspeech/tacotron2-DDC", progress_bar=False).to("cpu")
 
 if not os.path.exists(MODEL_PATH_EN) or not os.path.exists(MODEL_PATH_HILIGAYNON):
     print("Error: Vosk model not found! Check paths.")
@@ -112,9 +118,11 @@ def stop_recognition():
 # --- TEXT-TO-SPEECH FUNCTION ---
 def speak_translation(text):
     """Speaks the translated text using offline TTS."""
-    engine = pyttsx3.init()
-    engine.say(text)
-    engine.runAndWait()
+    audio_output = tts.tts(text=text)
+
+    # Play the audio using sounddevice
+    sd.play(np.array(audio_output), samplerate=22050)
+    sd.wait()  # Wait until playback is finished
 
 # --- UPDATE UI FUNCTION ---
 def update_text(input_text, translated_text, *args):
