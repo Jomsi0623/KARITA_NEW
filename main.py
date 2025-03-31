@@ -127,6 +127,10 @@ def speak_translation(text):
     sd.play(np.array(audio_output), samplerate=22050)
     sd.wait()  # Wait until playback is finished
 
+    # engine = pyttsx3.init()
+    # engine.say(text)
+    # engine.runAndWait()
+
 # --- UPDATE UI FUNCTION ---
 def update_text(input_text, translated_text, *args):
     """Updates the UI with recognized speech and its translation."""
@@ -203,7 +207,10 @@ class TranslatorApp(App):
         self.status_label.text = "Stopped Listening"
 
     def speak_translation_output(self, instance, touch):
-        speak_translation(self.translation_output.text.strip())
+        if instance.collide_point(*touch.pos):
+            text = self.translation_output.text.strip()
+            if text:
+                speak_translation(self.translation_output.text.strip())
 
     def toggle_dark_mode(self, instance, *args):
         """Toggles between light and dark mode using a ToggleButton."""
