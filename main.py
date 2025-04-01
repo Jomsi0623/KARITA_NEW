@@ -20,6 +20,7 @@ from kivy.uix.togglebutton import ToggleButton
 from TTS.api import TTS
 import sounddevice as sd
 import numpy as np
+from Levenshtein import distance as levenshtein_distance
 
 # --- VOSK MODELS ---
 MODEL_PATH_EN = "vosk_model"
@@ -45,7 +46,8 @@ audio_queue = queue.Queue()
 
 # --- DYNAMIC TRANSLATION FUNCTION ---
 def translate_text(text):
-    """Dynamically translates text while preserving greetings and handling phrases."""
+    """Translates text dynamically by prioritizing phrases and handling close matches."""
+    
     text = text.lower().strip()
     no_punctuation_text = text.translate(str.maketrans('', '', string.punctuation))
 
@@ -55,19 +57,31 @@ def translate_text(text):
 
     while i < len(words):
         match_found = False
-        # Start checking for more than 5 words, then 4, then 3, and so on
-        for phrase_length in range(len(words) - i, 0, -1):  # Start from the longest phrase and work down
+        
+        # Try matching the longest possible phrase first
+        for phrase_length in range(len(words) - i, 0, -1):
             phrase = " ".join(words[i:i + phrase_length])
             if phrase in TRANSLATION_DICT:
                 translated_words.append(TRANSLATION_DICT[phrase])
                 i += phrase_length
                 match_found = True
                 break
-        
+
         if not match_found:
             word = words[i]
-            closest_match = difflib.get_close_matches(word, TRANSLATION_DICT.keys(), n=1, cutoff=0.8)
-            translated_words.append(TRANSLATION_DICT[closest_match[0]] if closest_match else word)
+            # Find the closest match in the dictionary
+            closest_match = difflib.get_close_matches(word, TRANSLATION_DICT.keys(), n=1, cutoff=0.7)
+            
+            # If no close match is found, use Levenshtein distance for better matching
+            if not closest_match:
+                closest_match = min(
+                    TRANSLATION_DICT.keys(),
+                    key=lambda x: levenshtein_distance(word, x),
+                    default=None
+                )
+
+            # Translate if a match is found, otherwise keep the word as is
+            translated_words.append(TRANSLATION_DICT.get(closest_match, word) if closest_match else word)
             i += 1
 
     translated_sentence = " ".join(translated_words).capitalize()
@@ -160,7 +174,7 @@ class TranslatorApp(App):
         self.input_text = TextInput(multiline=True, hint_text="Enter Text", size_hint=(1, 0.3), font_size='24sp', disabled=True)
         main_layout.add_widget(self.input_text)
 
-        self.translation_output = TextInput(multiline=True, hint_text="Translation", disabled=True, size_hint=(1, 0.3), font_size='24sp')
+        self.translation_output = TextInput(multiline=True, text="This is a sample output for the voice.", hint_text="Translation", disabled=True, size_hint=(1, 0.3), font_size='24sp')
         main_layout.add_widget(self.translation_output)
 
         # --- Button Layout ---

@@ -17,6 +17,7 @@ from kivy.core.window import Window
 from kivy.graphics import Color, Rectangle
 from kivy.uix.togglebutton import ToggleButton
 import numpy as np
+from Levenshtein import distance as levenshtein_distance
 
 # --- VOSK MODELS ---
 MODEL_PATH_EN = "vosk_model"
@@ -39,6 +40,8 @@ audio_queue = queue.Queue()
 
 # --- DYNAMIC TRANSLATION FUNCTION ---
 def translate_text(text):
+    """Translates text dynamically by prioritizing phrases and handling close matches."""
+    
     text = text.lower().strip()
     no_punctuation_text = text.translate(str.maketrans('', '', string.punctuation))
 
@@ -48,6 +51,8 @@ def translate_text(text):
 
     while i < len(words):
         match_found = False
+        
+        # Try matching the longest possible phrase first
         for phrase_length in range(len(words) - i, 0, -1):
             phrase = " ".join(words[i:i + phrase_length])
             if phrase in TRANSLATION_DICT:
@@ -55,14 +60,26 @@ def translate_text(text):
                 i += phrase_length
                 match_found = True
                 break
-        
+
         if not match_found:
             word = words[i]
-            closest_match = difflib.get_close_matches(word, TRANSLATION_DICT.keys(), n=1, cutoff=0.8)
-            translated_words.append(TRANSLATION_DICT[closest_match[0]] if closest_match else word)
+            # Find the closest match in the dictionary
+            closest_match = difflib.get_close_matches(word, TRANSLATION_DICT.keys(), n=1, cutoff=0.7)
+            
+            # If no close match is found, use Levenshtein distance for better matching
+            if not closest_match:
+                closest_match = min(
+                    TRANSLATION_DICT.keys(),
+                    key=lambda x: levenshtein_distance(word, x),
+                    default=None
+                )
+
+            # Translate if a match is found, otherwise keep the word as is
+            translated_words.append(TRANSLATION_DICT.get(closest_match, word) if closest_match else word)
             i += 1
 
-    return " ".join(translated_words).capitalize()
+    translated_sentence = " ".join(translated_words).capitalize()
+    return translated_sentence
 
 # --- SPEECH RECOGNITION FUNCTION ---
 def audio_callback(indata, frames, time, status):

@@ -13,3 +13,6 @@ pip install pyttsx3
 
 # Install on Python 3.10
 pip install TTS
+
+# Install Levenshtein
+pip install python-Levenshtein
