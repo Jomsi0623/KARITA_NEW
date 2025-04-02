@@ -41,7 +41,6 @@ audio_queue = queue.Queue()
 # --- DYNAMIC TRANSLATION FUNCTION ---
 def translate_text(text):
     print(f"[LOG] Translating text: {text}")
-    
     text = text.lower().strip()
     no_punctuation_text = text.translate(str.maketrans('', '', string.punctuation))
 
@@ -51,8 +50,6 @@ def translate_text(text):
 
     while i < len(words):
         match_found = False
-        
-        # Try matching the longest possible phrase first
         for phrase_length in range(len(words) - i, 0, -1):
             phrase = " ".join(words[i:i + phrase_length])
             if phrase in TRANSLATION_DICT:
@@ -60,25 +57,24 @@ def translate_text(text):
                 i += phrase_length
                 match_found = True
                 break
-
         if not match_found:
             word = words[i]
-            # Find the closest match in the dictionary
             closest_match = difflib.get_close_matches(word, TRANSLATION_DICT.keys(), n=1, cutoff=0.7)
-            
-            # If no close match is found, use Levenshtein distance for better matching
-            if not closest_match:
+            if closest_match:
+                closest_match = closest_match[0]
+            else:
                 closest_match = min(
                     TRANSLATION_DICT.keys(),
                     key=lambda x: levenshtein_distance(word, x),
                     default=None
                 )
-
-            # Translate if a match is found, otherwise keep the word as is
             translated_words.append(TRANSLATION_DICT.get(closest_match, word) if closest_match else word)
             i += 1
-
+    
     translated_sentence = " ".join(translated_words).capitalize()
+    if not translated_sentence.strip():
+        translated_sentence = "Translation not found"
+    
     print(f"[LOG] Translated text: {translated_sentence}")
     return translated_sentence
 
