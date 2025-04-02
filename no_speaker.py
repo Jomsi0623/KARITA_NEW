@@ -105,16 +105,16 @@ def start_recognition(language="english"):
         with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype="int16", channels=1, callback=audio_callback):
             while recognition_active:
                 try:
-                    print(f"[LOG] Queue size: {audio_queue.qsize()}")
+                    print(f"[LOG] Size ka queue audio: {audio_queue.qsize()}")
                     data = audio_queue.get(timeout=1)
                     if recognizer.AcceptWaveform(data):
                         result_text = json.loads(recognizer.Result()).get("text", "").strip()
-                        print(f"[LOG] Recognized ({language}) text: {result_text}")
+                        print(f"[LOG] Na recognize nga ({language}), text: {result_text}")
                         if result_text:
                             translated = translate_text(result_text)
                             Clock.schedule_once(partial(update_text, result_text, translated), 0)
                 except queue.Empty:
-                    print("[WARNING] Audio queue empty.")
+                    print("[WARNING] Wala unod ang Audio.")
                     continue
                 except Exception as e:
                     print(f"[ERROR] Recognition error: {e}")
@@ -126,11 +126,11 @@ def start_recognition(language="english"):
 def stop_recognition():
     global recognition_active
     recognition_active = False
-    print("[LOG] Stopped recognition.")
+    print("[LOG] Nag untat na recognition sang audio.")
 
 # --- UPDATE UI FUNCTION ---
 def update_text(input_text, translated_text, *args):
-    print(f"[LOG] Updating UI: Input: {input_text}, Translation: {translated_text}")
+    print(f"[LOG] Ma update na dapat ang mga Text: Text: {input_text}, Translation: {translated_text}")
     app.input_text.text = input_text
     app.translation_output.text = translated_text
 
@@ -179,17 +179,17 @@ class TranslatorApp(App):
     def on_button_down_english(self, instance, touch):
         if instance.collide_point(*touch.pos):
             self.status_label.text = "Listening in English..."
-            print("[LOG] English button pressed.")
+            print("[LOG] Gin tum-ok ang English.")
             start_recognition("english")
 
     def on_button_down_hiligaynon(self, instance, touch):
         if instance.collide_point(*touch.pos):
             self.status_label.text = "Listening in Hiligaynon..."
-            print("[LOG] Hiligaynon button pressed.")
+            print("[LOG] Gin tum-ok ang Hiligaynon.")
             start_recognition("hiligaynon")
 
     def on_button_up(self, instance, touch):
-        print("[LOG] Button released.")
+        print("[LOG] Nag buya na sa pag tum-ok.")
         stop_recognition()
         self.status_label.text = "Stopped Listening"
 
