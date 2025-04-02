@@ -40,7 +40,7 @@ audio_queue = queue.Queue()
 
 # --- DYNAMIC TRANSLATION FUNCTION ---
 def translate_text(text):
-    """Translates text dynamically by prioritizing phrases and handling close matches."""
+    print(f"[LOG] Translating text: {text}")
     
     text = text.lower().strip()
     no_punctuation_text = text.translate(str.maketrans('', '', string.punctuation))
@@ -79,22 +79,24 @@ def translate_text(text):
             i += 1
 
     translated_sentence = " ".join(translated_words).capitalize()
+    print(f"[LOG] Translated text: {translated_sentence}")
     return translated_sentence
 
 # --- SPEECH RECOGNITION FUNCTION ---
 def audio_callback(indata, frames, time, status):
     if status:
-        print(status, flush=True)
+        print(f"[ERROR] Audio callback status: {status}")
+    print(f"[LOG] Received audio frames: {len(indata)}")
     audio_queue.put(bytes(indata))
 
 def start_recognition(language="english"):
     global recognition_active
     if recognition_active:
-        print("Recognition already active.")
+        print("[LOG] Recognition already active.")
         return
 
     recognition_active = True
-    print(f"Listening in {language}...")
+    print(f"[LOG] Listening in {language}...")
 
     recognizer = KaldiRecognizer(vosk_model_en if language == "english" else vosk_model_hiligaynon, 16000)
 
@@ -103,16 +105,19 @@ def start_recognition(language="english"):
         with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype="int16", channels=1, callback=audio_callback):
             while recognition_active:
                 try:
+                    print(f"[LOG] Queue size: {audio_queue.qsize()}")
                     data = audio_queue.get(timeout=1)
                     if recognizer.AcceptWaveform(data):
                         result_text = json.loads(recognizer.Result()).get("text", "").strip()
+                        print(f"[LOG] Recognized ({language}) text: {result_text}")
                         if result_text:
                             translated = translate_text(result_text)
                             Clock.schedule_once(partial(update_text, result_text, translated), 0)
                 except queue.Empty:
+                    print("[WARNING] Audio queue empty.")
                     continue
                 except Exception as e:
-                    print("Recognition Error:", e)
+                    print(f"[ERROR] Recognition error: {e}")
                     break
         recognition_active = False
 
@@ -121,9 +126,11 @@ def start_recognition(language="english"):
 def stop_recognition():
     global recognition_active
     recognition_active = False
+    print("[LOG] Stopped recognition.")
 
 # --- UPDATE UI FUNCTION ---
 def update_text(input_text, translated_text, *args):
+    print(f"[LOG] Updating UI: Input: {input_text}, Translation: {translated_text}")
     app.input_text.text = input_text
     app.translation_output.text = translated_text
 
@@ -172,14 +179,17 @@ class TranslatorApp(App):
     def on_button_down_english(self, instance, touch):
         if instance.collide_point(*touch.pos):
             self.status_label.text = "Listening in English..."
+            print("[LOG] English button pressed.")
             start_recognition("english")
 
     def on_button_down_hiligaynon(self, instance, touch):
         if instance.collide_point(*touch.pos):
             self.status_label.text = "Listening in Hiligaynon..."
+            print("[LOG] Hiligaynon button pressed.")
             start_recognition("hiligaynon")
 
     def on_button_up(self, instance, touch):
+        print("[LOG] Button released.")
         stop_recognition()
         self.status_label.text = "Stopped Listening"
 
