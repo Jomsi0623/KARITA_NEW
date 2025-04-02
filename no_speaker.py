@@ -17,7 +17,7 @@ from kivy.core.window import Window
 from kivy.graphics import Color, Rectangle
 from kivy.uix.togglebutton import ToggleButton
 import numpy as np
-from Levenshtein import distance as levenshtein_distance
+# from Levenshtein import distance as levenshtein_distance
 
 # --- VOSK MODELS ---
 MODEL_PATH_EN = "vosk_model"
@@ -60,15 +60,7 @@ def translate_text(text):
         if not match_found:
             word = words[i]
             closest_match = difflib.get_close_matches(word, TRANSLATION_DICT.keys(), n=1, cutoff=0.7)
-            if closest_match:
-                closest_match = closest_match[0]
-            else:
-                closest_match = min(
-                    TRANSLATION_DICT.keys(),
-                    key=lambda x: levenshtein_distance(word, x),
-                    default=None
-                )
-            translated_words.append(TRANSLATION_DICT.get(closest_match, word) if closest_match else word)
+            translated_words.append(TRANSLATION_DICT.get(closest_match[0], word) if closest_match else word)
             i += 1
     
     translated_sentence = " ".join(translated_words).capitalize()
