@@ -146,15 +146,23 @@ class TranslatorApp(App):
 
         button_layout = BoxLayout(size_hint=(1, 0.2), spacing=10)
 
-        self.control_button = Image(source="assets/mic_e.png", size_hint=(0.2, 1))
+        mic_e_layout = BoxLayout(orientation='vertical', size_hint=(0.2, 1))
+        self.control_button = Image(source="assets/mic_e.png", size_hint=(1, 0.8))
         self.control_button.bind(on_touch_down=self.on_button_down_english)
         self.control_button.bind(on_touch_up=self.on_button_up)
-        button_layout.add_widget(self.control_button)
+        mic_e_label = Label(text="English", size_hint=(1, 0.2), font_size='18sp', color=(0, 0, 0, 1))
+        mic_e_layout.add_widget(self.control_button)
+        mic_e_layout.add_widget(mic_e_label)
+        button_layout.add_widget(mic_e_layout)
 
-        self.hiligaynon_button = Image(source="assets/mic_h.png", size_hint=(0.2, 1))
+        mic_h_layout = BoxLayout(orientation='vertical', size_hint=(0.2, 1))
+        self.hiligaynon_button = Image(source="assets/mic_h.png", size_hint=(1, 0.8))
         self.hiligaynon_button.bind(on_touch_down=self.on_button_down_hiligaynon)
         self.hiligaynon_button.bind(on_touch_up=self.on_button_up)
-        button_layout.add_widget(self.hiligaynon_button)
+        mic_h_label = Label(text="Hiligaynon", size_hint=(1, 0.2), font_size='18sp', color=(0, 0, 0, 1))
+        mic_h_layout.add_widget(self.hiligaynon_button)
+        mic_h_layout.add_widget(mic_h_label)
+        button_layout.add_widget(mic_h_layout)
 
         main_layout.add_widget(button_layout)
 
