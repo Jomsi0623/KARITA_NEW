@@ -41,28 +41,43 @@ audio_queue = queue.Queue()
 # --- DYNAMIC TRANSLATION FUNCTION ---
 def translate_text(text):
     print(f"[LOG] Translating text: {text}")
+    
+    # Normalize input text
     text = text.lower().strip()
-    no_punctuation_text = text.translate(str.maketrans('', '', string.punctuation))
 
+    # Preserve hyphenated words temporarily
+    preserved_text = text.replace('-', '<<hyphen>>')
+    
+    # Remove punctuation (except preserved hyphens)
+    no_punctuation_text = preserved_text.translate(str.maketrans('', '', string.punctuation)).replace('<<hyphen>>', '-')
     words = no_punctuation_text.split()
+
     translated_words = []
     i = 0
 
     while i < len(words):
         match_found = False
-        for phrase_length in range(len(words) - i, 0, -1):
-            phrase = " ".join(words[i:i + phrase_length])
+        for phrase_len in range(len(words) - i, 0, -1):
+            phrase = " ".join(words[i:i + phrase_len])
+            # Try exact match
             if phrase in TRANSLATION_DICT:
                 translated_words.append(TRANSLATION_DICT[phrase])
-                i += phrase_length
+                i += phrase_len
+                match_found = True
+                break
+            # Try hyphen-normalized match (remove hyphens)
+            phrase_no_hyphen = phrase.replace('-', '')
+            if phrase_no_hyphen in TRANSLATION_DICT:
+                translated_words.append(TRANSLATION_DICT[phrase_no_hyphen])
+                i += phrase_len
                 match_found = True
                 break
         if not match_found:
             word = words[i]
-            closest_match = difflib.get_close_matches(word, TRANSLATION_DICT.keys(), n=1, cutoff=0.7)
-            translated_words.append(TRANSLATION_DICT.get(closest_match[0], word) if closest_match else word)
+            closest = difflib.get_close_matches(word, TRANSLATION_DICT.keys(), n=1, cutoff=0.7)
+            translated_words.append(TRANSLATION_DICT.get(closest[0], word) if closest else word)
             i += 1
-    
+
     translated_sentence = " ".join(translated_words).capitalize()
     if not translated_sentence.strip():
         translated_sentence = "Translation not found"
