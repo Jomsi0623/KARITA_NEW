@@ -168,7 +168,7 @@ class TranslatorApp(App):
         self.input_text = TextInput(multiline=True, hint_text="Enter Text", size_hint=(1, 0.3), font_size='24sp', disabled=True)
         main_layout.add_widget(self.input_text)
 
-        self.translation_output = TextInput(multiline=True, text="This is a sample output for the voice.", hint_text="Translation", disabled=True, size_hint=(1, 0.3), font_size='24sp')
+        self.translation_output = TextInput(multiline=True, hint_text="Translation", disabled=True, size_hint=(1, 0.3), font_size='24sp')
         main_layout.add_widget(self.translation_output)
 
         button_layout = BoxLayout(size_hint=(1, 0.2), spacing=10)
