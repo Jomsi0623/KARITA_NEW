@@ -4,6 +4,7 @@ import threading
 import json
 import string
 import difflib
+import re
 import sounddevice as sd
 from vosk import Model, KaldiRecognizer
 from kivy.app import App
@@ -31,27 +32,33 @@ vosk_model_en = Model(MODEL_PATH_EN)
 vosk_model_hiligaynon = Model(MODEL_PATH_HILIGAYNON)
 
 # --- LOAD TRANSLATION DICTIONARY ---
-with open("translation_dict.json", "r", encoding="utf-8") as file:
-    TRANSLATION_DICT = json.load(file)
+# with open("translation_dict.json", "r", encoding="utf-8") as file:
+#     TRANSLATION_DICT = json.load(file)
+with open("translation_dict.json", "r", encoding="utf-8") as f:
+    raw_dict = json.load(f)
 
 # --- GLOBAL VARIABLES ---
 recognition_active = False
 audio_queue = queue.Queue()
 
-# --- DYNAMIC TRANSLATION FUNCTION ---
+# Normalize keys in the dictionary
+TRANSLATION_DICT = {
+    k.strip().lower(): v.strip() for k, v in raw_dict.items()
+}
+
+# Normalize input text
+def normalize_text(text):
+    text = text.lower()
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    return text.strip()
+
+# Translation function
 def translate_text(text):
     print(f"[LOG] Translating text: {text}")
+    original_text = text
+    text = normalize_text(text)
+    words = text.split()
     
-    # Normalize input text
-    text = text.lower().strip()
-
-    # Preserve hyphenated words temporarily
-    preserved_text = text.replace('-', '<<hyphen>>')
-    
-    # Remove punctuation (except preserved hyphens)
-    no_punctuation_text = preserved_text.translate(str.maketrans('', '', string.punctuation)).replace('<<hyphen>>', '-')
-    words = no_punctuation_text.split()
-
     translated_words = []
     i = 0
 
@@ -59,30 +66,35 @@ def translate_text(text):
         match_found = False
         for phrase_len in range(len(words) - i, 0, -1):
             phrase = " ".join(words[i:i + phrase_len])
-            # Try exact match
+
+            # Exact match
             if phrase in TRANSLATION_DICT:
                 translated_words.append(TRANSLATION_DICT[phrase])
                 i += phrase_len
                 match_found = True
                 break
-            # Try hyphen-normalized match (remove hyphens)
-            phrase_no_hyphen = phrase.replace('-', '')
-            if phrase_no_hyphen in TRANSLATION_DICT:
-                translated_words.append(TRANSLATION_DICT[phrase_no_hyphen])
+
+            # Fuzzy match
+            close_matches = difflib.get_close_matches(phrase, TRANSLATION_DICT.keys(), n=1, cutoff=0.9)
+            if close_matches:
+                translated_words.append(TRANSLATION_DICT[close_matches[0]])
                 i += phrase_len
                 match_found = True
                 break
+
+        # If no phrase match, try word match
         if not match_found:
             word = words[i]
-            closest = difflib.get_close_matches(word, TRANSLATION_DICT.keys(), n=1, cutoff=0.7)
-            translated_words.append(TRANSLATION_DICT.get(closest[0], word) if closest else word)
+            close_word = difflib.get_close_matches(word, TRANSLATION_DICT.keys(), n=1, cutoff=0.9)
+            translated_words.append(TRANSLATION_DICT.get(close_word[0], word) if close_word else word)
             i += 1
 
     translated_sentence = " ".join(translated_words).capitalize()
     if not translated_sentence.strip():
         translated_sentence = "Translation not found"
-    
-    print(f"[LOG] Translated text: {translated_sentence}")
+
+    print(f"[LOG] Original: {original_text}")
+    print(f"[LOG] Translated: {translated_sentence}")
     return translated_sentence
 
 # --- SPEECH RECOGNITION FUNCTION ---
