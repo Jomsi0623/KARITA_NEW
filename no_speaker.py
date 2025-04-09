@@ -18,11 +18,15 @@ from kivy.core.window import Window
 from kivy.graphics import Color, Rectangle
 from kivy.uix.togglebutton import ToggleButton
 import numpy as np
+from tts_component import TextToSpeechEngine
 # from Levenshtein import distance as levenshtein_distance
 
 # --- VOSK MODELS ---
 MODEL_PATH_EN = "vosk_model"
 MODEL_PATH_HILIGAYNON = "vosk_model_ph"
+
+#TTS
+tts_engine = TextToSpeechEngine()
 
 if not os.path.exists(MODEL_PATH_EN) or not os.path.exists(MODEL_PATH_HILIGAYNON):
     print("Error: Vosk model not found! Check paths.")
@@ -168,7 +172,7 @@ class TranslatorApp(App):
         self.input_text = TextInput(multiline=True, hint_text="Enter Text", size_hint=(1, 0.3), font_size='24sp', disabled=True)
         main_layout.add_widget(self.input_text)
 
-        self.translation_output = TextInput(multiline=True, hint_text="Translation", disabled=True, size_hint=(1, 0.3), font_size='24sp')
+        self.translation_output = TextInput(multiline=True, hint_text="Translation", text="This is a sample output", disabled=True, size_hint=(1, 0.3), font_size='24sp')
         main_layout.add_widget(self.translation_output)
 
         button_layout = BoxLayout(size_hint=(1, 0.2), spacing=10)
@@ -181,6 +185,11 @@ class TranslatorApp(App):
         mic_e_layout.add_widget(self.control_button)
         mic_e_layout.add_widget(mic_e_label)
         button_layout.add_widget(mic_e_layout)
+
+        # Speak Button
+        self.speak_button = Image(source="assets/speaker_icon.png", size_hint=(0.2, 1))
+        self.speak_button.bind(on_touch_down=self.speak_translation_output)
+        button_layout.add_widget(self.speak_button)
 
         mic_h_layout = BoxLayout(orientation='vertical', size_hint=(0.2, 1))
         self.hiligaynon_button = Image(source="assets/mic_h.png", size_hint=(1, 0.8))
@@ -242,10 +251,16 @@ class TranslatorApp(App):
         # 🔹 Update button icons
         self.control_button.source = "assets/mic_e_gray.png" if self.dark_mode else "assets/mic_e.png"
         self.hiligaynon_button.source = "assets/mic_h_gray.png" if self.dark_mode else "assets/mic_h.png"
-        # self.speak_button.source = "assets/speaker_icon_gray.png" if self.dark_mode else "assets/speaker_icon.png"
+        self.speak_button.source = "assets/speaker_icon_gray.png" if self.dark_mode else "assets/speaker_icon.png"
 
         # 🔹 Update toggle button text
         self.dark_mode_button.text = "Light Mode" if self.dark_mode else "Dark Mode"
+
+    def speak_translation_output(self, instance, touch):
+        if instance.collide_point(*touch.pos):
+            text = self.translation_output.text.strip()
+            if text:
+                tts_engine.speak(text)
 
 if __name__ == "__main__":
     app = TranslatorApp()
