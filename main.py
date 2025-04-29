@@ -20,6 +20,9 @@ from tts_component import TextToSpeechEngine
 from multiprocessing import Process, Pipe
 from button_controller import start_button_controller
 import time
+from kivy.uix.image import Image
+from kivy.uix.modalview import ModalView
+from kivy.uix.anchorlayout import AnchorLayout
 
 # --- VOSK MODELS ---
 MODEL_PATH_EN = "vosk_model"
@@ -166,6 +169,16 @@ class TranslatorApp(App):
         self.translation_output = TextInput(multiline=True, hint_text="Translation", size_hint=(1, 0.3), font_size='24sp', disabled=True)
         main_layout.add_widget(self.translation_output)
 
+        # self.loader_modal = ModalView(size_hint=(None, None), size=(200, 200), background_color=(0, 0, 0, 0.5), auto_dismiss=False)
+        # loader_image = Image(source='assets/loader.gif', anim_delay=0.05)
+        # self.loader_modal.add_widget(loader_image)
+
+        self.loader_modal = ModalView(size_hint=(1, 1), background_color=(0, 0, 0, 0.5), auto_dismiss=False)
+        anchor = AnchorLayout()
+        loader_image = Image(source='assets/loader.gif', anim_delay=0.05, size_hint=(None, None), size=(150, 150))
+        anchor.add_widget(loader_image)
+        self.loader_modal.add_widget(anchor)
+
         # Dark mode toggle
         self.dark_mode_button = ToggleButton(text="Dark Mode", size_hint=(1, 0.1))
         self.dark_mode_button.bind(on_press=self.toggle_dark_mode)
@@ -206,8 +219,28 @@ class TranslatorApp(App):
                 elif command == 'speak':
                     text = self.translation_output.text.strip()
                     if text:
-                        tts_engine.speak(text)
+                        Clock.schedule_once(lambda dt: self.show_loader())
+                        Clock.schedule_once(lambda dt: self.start_speaking(text), 2)
             time.sleep(0.1)
+
+    def show_loader(self):
+        if not self.loader_modal.parent:
+            self.loader_modal.open()
+
+    def hide_loader(self):
+        if self.loader_modal.parent:
+            self.loader_modal.dismiss()
+
+    def start_speaking(self, text):
+        Clock.schedule_once(lambda dt: self.hide_loader())
+        threading.Thread(target=self.speak_text, args=(text,), daemon=True).start()
+
+    def speak_and_hide_loader(self, text):
+        tts_engine.speak(text)
+        Clock.schedule_once(lambda dt: self.show_loader(False))
+
+    def speak_text(self, text):
+        tts_engine.speak(text)
 
     def update_hint_text(self, text):
         """Update hint text safely on the main thread"""
