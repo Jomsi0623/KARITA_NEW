@@ -23,6 +23,8 @@ import time
 from kivy.uix.image import Image
 from kivy.uix.modalview import ModalView
 from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.floatlayout import FloatLayout
+from kivy.graphics import Color, RoundedRectangle
 
 # --- VOSK MODELS ---
 MODEL_PATH_EN = "vosk_model"
@@ -163,11 +165,88 @@ class TranslatorApp(App):
         self.status_label = Label(text="KARITA", size_hint=(1, 0.1), font_size='50sp', color=(0, 0, 0, 1))
         main_layout.add_widget(self.status_label)
 
-        self.input_text = TextInput(multiline=True, hint_text="Press button and speak", size_hint=(1, 0.3), font_size='24sp', disabled=True)
-        main_layout.add_widget(self.input_text)
+        ################# TRANSLATION INPUT START #################
+        input_container = FloatLayout(size_hint=(1, 0.3))
 
-        self.translation_output = TextInput(multiline=True, hint_text="Translation", size_hint=(1, 0.3), font_size='24sp', disabled=True)
-        main_layout.add_widget(self.translation_output)
+        with input_container.canvas.before:
+            Color(0.53, 0.81, 0.92, 1)  # Sky blue
+            self.border_rect = RoundedRectangle(radius=[20], pos=input_container.pos, size=input_container.size)
+
+            Color(0.9, 0.9, 0.9, 1)  # Light gray
+            self.input_bg = RoundedRectangle(radius=[18], pos=(input_container.x + 2, input_container.y + 2),
+                                            size=(input_container.width - 4, input_container.height - 4))
+
+        def update_bg(instance, value):
+            self.border_rect.pos = instance.pos
+            self.border_rect.size = instance.size
+
+            self.input_bg.pos = (instance.x + 5, instance.y + 5)
+            self.input_bg.size = (instance.width - 10, instance.height - 10)
+
+        input_container.bind(pos=update_bg, size=update_bg)
+
+        self.input_text = TextInput(
+            multiline=True,
+            hint_text="Press button and speak",
+            font_size='24sp',
+            background_color=(0, 0, 0, 0),
+            foreground_color=(0, 0, 0, 1),
+            size_hint=(0.96, 0.9),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+            disabled=True
+        )
+
+        input_container.add_widget(self.input_text)
+        main_layout.add_widget(input_container)
+        ################# TRANSLATION INPUT END #################
+
+        # TRANSLATE ICON STARTS HERE
+        icon_container = AnchorLayout(size_hint=(1, 0.1))
+        self.translation_icon = Image(
+            source='assets/translate_icon.png',
+            size_hint=(None, None),
+            size=(80, 80),
+            allow_stretch=True,
+            keep_ratio=True
+        )
+        icon_container.add_widget(self.translation_icon)
+        main_layout.add_widget(icon_container)
+        # TRANSLATE ICON ENDS HERE
+
+        ################# TRANSLATION OUTPUT START #################
+        output_container = FloatLayout(size_hint=(1, 0.3))
+
+        with output_container.canvas.before:
+            Color(0.53, 0.81, 0.92, 1)  # Sky blue
+            self.border_rect_output = RoundedRectangle(radius=[20], pos=output_container.pos, size=output_container.size)
+
+            Color(0.9, 0.9, 0.9, 1)  # Light gray
+            self.output_bg = RoundedRectangle(radius=[18], pos=(output_container.x + 5, output_container.y + 5),
+                                            size=(output_container.width - 10, output_container.height - 10))
+
+        def update_output_bg(instance, value):
+            self.border_rect_output.pos = instance.pos
+            self.border_rect_output.size = instance.size
+
+            self.output_bg.pos = (instance.x + 5, instance.y + 5)
+            self.output_bg.size = (instance.width - 10, instance.height - 10)
+
+        output_container.bind(pos=update_output_bg, size=update_output_bg)
+
+        self.translation_output = TextInput(
+            multiline=True,
+            hint_text="Translation",
+            font_size='24sp',
+            background_color=(0, 0, 0, 0),
+            foreground_color=(0, 0, 0, 1),
+            size_hint=(0.96, 0.9),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+            disabled=True
+        )
+
+        output_container.add_widget(self.translation_output)
+        main_layout.add_widget(output_container)
+        ################# TRANSLATION OUTPUT END #################
 
         # self.loader_modal = ModalView(size_hint=(None, None), size=(200, 200), background_color=(0, 0, 0, 0.5), auto_dismiss=False)
         # loader_image = Image(source='assets/loader.gif', anim_delay=0.05)
@@ -263,6 +342,9 @@ class TranslatorApp(App):
         self.input_text.foreground_color = text_color
         self.translation_output.foreground_color = text_color
         self.dark_mode_button.text = "Light Mode" if self.dark_mode else "Dark Mode"
+
+        self.translation_icon.source = 'assets/translate_icon_gray.png' if self.dark_mode else 'assets/translate_icon.png'
+        self.translation_icon.reload()
 
     def on_stop(self):
         if hasattr(self, 'hardware_process'):
